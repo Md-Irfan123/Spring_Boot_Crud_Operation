@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -23,6 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.jpa.spring_boot_crud_operation.dto.User;
 import com.jpa.spring_boot_crud_operation.exception.UserNotFoundException;
+import com.jpa.spring_boot_crud_operation.repository.UserRepository;
 import com.jpa.spring_boot_crud_operation.response.APIResponse;
 import com.jpa.spring_boot_crud_operation.service.UserService;
 
@@ -34,42 +36,57 @@ import jakarta.validation.Valid;
 public class UserController {
 
 	@Autowired
-	private UserService service;
-	
+    private UserService service;  // Your service layer to handle business logic
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 	
 
 	
-	  @PostMapping(value = "/saveUserData") public ResponseEntity<?>
-	  saveUserController(@Valid @RequestBody User user, BindingResult result) {
+	 
 
-	  if(result.hasErrors()) { Map<String, String> errors=new
-	  HashMap<String,String>();
-	  
-	  for(FieldError error:result.getFieldErrors()) {
+	    @PostMapping(value = "/saveUserData")
+	    public ResponseEntity<?> saveUserController(@Valid @RequestBody User user, BindingResult result) {
+
+	        // Handle validation errors
+	        if (result.hasErrors()) {
+	            Map<String, String> errors = new HashMap<>();
+	            for (FieldError error : result.getFieldErrors()) {
+	                errors.put(error.getField(), error.getDefaultMessage());
+	            }
+	            return new ResponseEntity<>(errors, HttpStatus.BAD_REQUEST);
+	        }
+
+	        // Create a new User entity and set the fields
+	        User newUser = new User();
+	        newUser.setUsername(user.getUsername());
+	        newUser.setAddress(user.getAddress());
+	        newUser.setAge(user.getAge());
+	        newUser.setEmail(user.getEmail());
+	        // Set password and role
+	        newUser.setPassword(passwordEncoder.encode(user.getPassword()));  // Encode the password
+	        newUser.setRole(user.getRole().toUpperCase());  // Ensure role is uppercase (ADMIN, USER)
 	 
-	  errors.put(error.getField(), error.getDefaultMessage()); 
-	 } 
-	  return new
-	  ResponseEntity<>(errors,HttpStatus.BAD_REQUEST); 
-	} 
-	  User user1=new User();
-	  
-	  user1.setName(user.getName());
-	  user1.setAddress(user.getAddress());
-	  user1.setAge(user.getAge());
-	  user1.setEmail(user.getEmail());
-	  
-	  service.saveUser(user1);
-	 
-	  return new
-	  ResponseEntity<>("user data is valid & saved successfully",HttpStatus.OK); }
+
+	        // Save the user to the database
+	        service.createUserData(newUser);
+
+	        return new ResponseEntity<>("User data is valid & saved successfully", HttpStatus.OK);
+	    }
+    
+		    
+
+	
+	
+	
+
 	 
 	
 
 	@GetMapping(value="/getAllUserData")
 	public ResponseEntity<List<User>> getAllUserController() {
 
-		return ResponseEntity.ok(service.findAllUserService());
+		return ResponseEntity.ok(service.findAllUsers());
 
 	}
 
@@ -78,7 +95,7 @@ public class UserController {
 		
 		
 
-		  return service.getByIdService(id);
+		  return service.getById(id);
 					
 	}
 	
@@ -86,7 +103,7 @@ public class UserController {
 	public void deleteByIdController(@PathVariable("id") Integer id) {
 		
 		
-		 service.deleteByIdService(id);
+		 service.deleteById(id);
 	
 		
 	}
@@ -96,14 +113,14 @@ public class UserController {
     @PutMapping("/{id}")
     public User updateUserDataController(@PathVariable("id") Integer id,  @RequestBody User user) {
        
-           return service.updateUserDataService(id, user);
+           return service.updateUserData(id, user);
        
     }
     
     @GetMapping(value="/{field}")
     public APIResponse<List<User>> findUserDataWithSortingController(@PathVariable String field){
     	
-    	List<User> allUser=service.findUserDataWithSortingService(field);
+    	List<User> allUser=service.findUsersWithSorting(field);
     	
     	return new APIResponse<>(allUser.size(),allUser);
     	
@@ -114,7 +131,7 @@ public class UserController {
     @GetMapping(value="/Pagination/{offset}/{pageSize}")
     public APIResponse<Page<User>> findProductWithPagination(@PathVariable int offset, @PathVariable int pageSize){
     	
-	Page<User> allUser=service.findProductWithPagination(offset, pageSize);
+	Page<User> allUser=service.findUsersWithPagination(offset, pageSize);
     	
     	return new APIResponse<>(allUser.getSize(),allUser);
     	
